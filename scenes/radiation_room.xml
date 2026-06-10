@@ -15,7 +15,7 @@
       ============================================================
       SPENT FUEL CANISTERS  (closed solid obstacles in MuJoCo; Geant4 does the physics)
         MuJoCo only sees a closed steel cylinder + its placement. The contents
-        (~45,000 pebbles, <= 1 cm dia) and the source are NOT modeled here -- the
+        (~45,000 pebbles, <= 1 cm dia) and the source are NOT modeled here the
         Geant4 bridge fills the interior from the canister placement + dimensions below.
         Real spec used:
           height   H     = 4.18 m   -> cylinder half-height 2.09
@@ -29,8 +29,6 @@
       cannot drive through them.
       ============================================================
     -->
-
-  
 
   <option timestep="0.001" gravity="0 0 -9.81"/>
 

@@ -1,0 +1,38 @@
+# Radiation-room scene config.
+#
+# Turned into a MuJoCo scene XML at launch by utils/scene_generator.py.
+# Copy this file (e.g. radiation_room_dense.yaml) to make alternative layouts,
+
+room:
+  half_x: 20.0          # floor is 2*half_x m wide (X); walls at +/-half_x
+  half_y: 20.0          # floor is 2*half_y m deep  (Y); walls at +/-half_y
+  wall_height: 4.0
+  wall_thickness: 0.2
+
+canister:                # shared dimensions/material for every canister (spent-fuel spec)
+  radius: 0.89          # outer radius R_out  (diameter 1.78 m)
+  half_height: 2.09     # H/2                 (height   4.18 m)
+  material: G4_STAINLESS-STEEL   # default material (== Geant4 NIST id); per-canister override below
+
+# Per-canister pose. x, y are required.
+#   z defaults to half_height -> upright, base resting on the floor.
+#   roll/pitch/yaw are in DEGREES (yaw is invisible on an upright cylinder;
+#   use roll/pitch to tip a canister onto its side and set z: <radius>).
+#   material overrides canister.material for that one canister. A name not
+#   defined in the template's <asset> is auto-added (neutral grey).
+canisters:
+  - {x: -17, y: -5, z: 0.89, pitch: 90}
+  - {x:  0, y: -7}
+  - {x:  17, y: -12}
+  - {x: -15, y:  12}
+  - {x:  0, y:  12}
+  - {x:  17, y:  16}
+
+# Interior / maze walls (the 4 perimeter walls come from `room:` above).
+# Each: box centered at (x, y) on the floor; `length` runs along its local X,
+# `thickness` along Y, `yaw` rotates it (deg). height defaults to room.wall_height.
+# Robot spawns at the origin (0, 0). These force it to detour around some canisters.
+walls:
+  - {x: -4, y: -3.5, length: 16, thickness: 0.2, yaw:  0}   # south blocker, gap at x>4  -> detour to (0,-7)
+  - {x:  4, y:  4.0, length: 16, thickness: 0.2, yaw:  0}   # north blocker, gap at x<-4 -> detour to (0,12)
+  - {x: 12, y: -9.0, length: 12, thickness: 0.2, yaw: 90}   # east blocker              -> detour to (17,-12)

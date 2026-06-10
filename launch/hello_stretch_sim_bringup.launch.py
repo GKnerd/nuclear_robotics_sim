@@ -1,7 +1,10 @@
 import os 
 
-from typing import List
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.scene_generator import write_scene_from_config
 
+from typing import List, Dict
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
 from launch.actions import (
@@ -21,8 +24,9 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def launch_setup(context, *args, **kwargs) -> List[DeclareLaunchArgument]:
-    
-    stretch_driver_params = {
+
+    scene_config = LaunchConfiguration("scene_config").perform(context)
+    stretch_driver_params: Dict[str, LaunchConfiguration] = {
         "use_cameras": LaunchConfiguration("use_cameras"),
         "use_rviz": LaunchConfiguration("use_rviz"),
         "use_mujoco_viewer": LaunchConfiguration("use_mujoco_viewer"),
@@ -40,7 +44,10 @@ def launch_setup(context, *args, **kwargs) -> List[DeclareLaunchArgument]:
         "default_goal_timeout_s": LaunchConfiguration("default_goal_timeout_s"),
     }
 
-
+    if scene_config:
+        stretch_driver_params["scene_xml"] = write_scene_from_config(config_path=scene_config, 
+                                                template_path=stretch_driver_params["scene_xml"].perform(context)
+        )
 
     stretch_mujoco_simulation_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -58,8 +65,7 @@ def launch_setup(context, *args, **kwargs) -> List[DeclareLaunchArgument]:
 def generate_launch_description() -> LaunchDescription:
 
     return LaunchDescription(
-        generate_declared_arguments() +
-        [OpaqueFunction(function=launch_setup)]
+        generate_declared_arguments() + [OpaqueFunction(function=launch_setup)]
     )
 
 
@@ -111,9 +117,15 @@ def generate_declared_arguments() -> List[DeclareLaunchArgument]:
             "use_robocasa", default_value="false", choices=["true", "false"]
         ),
         DeclareLaunchArgument(
-            "scene_xml", 
-            default_value=os.path.join(get_package_share_path("hello_stretch_sim_bringup"), "scenes", "radiation_room.xml"), 
-            description='The absolute path to a Mujoco scene xml',
+            "scene_config",
+            default_value=os.path.join(get_package_share_path("hello_stretch_sim_bringup"), "config", "radiation_room.yaml"),
+            description="Path to a YAML scene config (config/radiation_room.yaml). "
+                        "If set, the scene XML is generated from it and overrides scene_xml.",
+        ),
+        DeclareLaunchArgument(
+            "scene_xml",
+            default_value=os.path.join(get_package_share_path("hello_stretch_sim_bringup"), "scenes", "radiation_room.xml"),
+            description='The absolute path to a Mujoco scene xml (used when scene_config is empty)',
         ),
         DeclareLaunchArgument(
             "scene_name", 
