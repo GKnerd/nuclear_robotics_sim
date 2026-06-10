@@ -1,0 +1,13 @@
+# Mujoco Log files
+*.TXT
+
+
+# Python
+__pycache__
+
+# build artifacts
+
+build/
+install/
+log/
+

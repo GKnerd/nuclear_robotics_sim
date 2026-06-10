@@ -1,0 +1,78 @@
+<mujoco model="radiation_room">
+    <!-- 
+          Nuclear-use-case scene for the Stretch sim (overlay of stretch4_mujoco).
+
+      Same physics setup as base_world.xml:
+        - timestep 0.001 s, gravity 0 0 -9.81
+        - 20 m x 20 m floor (plane half-extents 10 10), geom name "floor"
+
+      Robot: pulled in via <include> (driver does NOT inject it). Spawns at origin.
+      Gotchas deliberately avoided (see project notes):
+        - no <size ...> element  (robot defaults.xml owns njmax/nconmax)
+        - no <default class="collision">  (robot defaults.xml already defines it)
+        - a geom literally named "floor" exists (robot contact.xml references it)
+
+      ============================================================
+      SPENT FUEL CANISTERS  (closed solid obstacles in MuJoCo; Geant4 does the physics)
+        MuJoCo only sees a closed steel cylinder + its placement. The contents
+        (~45,000 pebbles, <= 1 cm dia) and the source are NOT modeled here -- the
+        Geant4 bridge fills the interior from the canister placement + dimensions below.
+        Real spec used:
+          height   H     = 4.18 m   -> cylinder half-height 2.09
+          diameter D     = 1.78 m   -> outer radius R_out    0.89
+          shell material = 304L stainless steel  (-> material name G4_STAINLESS-STEEL)
+          mass: ~6 t empty, ~14 t loaded; design pressure 0.4 MPa; >50 yr design life
+      Geant4 material mapping (encoding = MuJoCo <material> name == Geant4 NIST id):
+        floor + 4 walls -> "G4_CONCRETE"        (G4_CONCRETE)
+        canisters       -> "G4_STAINLESS-STEEL" (304L stainless steel)
+      Canisters are static (no joint) -> fixed obstacles; collidable so the robot
+      cannot drive through them.
+      ============================================================
+    -->
+
+  
+
+  <option timestep="0.001" gravity="0 0 -9.81"/>
+
+  <asset>
+      <texture type="skybox" builtin="gradient" width="512" height="512" rgb1=".3 .4 .5" rgb2="0 0 0"/>
+      <texture name="grid" type="2d" builtin="checker" width="512" height="512" rgb1=".4 .4 .4" rgb2=".5 .5 .5"/>
+
+      <!-- Material names == Geant4 NIST ids (see header) -->
+      <material name="G4_CONCRETE" texture="grid" texrepeat="20 20" texuniform="true" reflectance=".1" rgba=".55 .55 .55 1"/>
+      <material name="G4_STAINLESS-STEEL" reflectance=".3" specular=".5" shininess=".6" rgba=".60 .62 .68 1"/>
+  </asset>
+
+  <visual>
+      <map force="0.1" zfar="30"/>
+      <rgba haze="0.15 0.25 0.35 1"/>
+      <quality numslices="16" numstacks="8"/>
+      <global offwidth="800" offheight="800"/>
+  </visual>
+
+  <!-- Robot (defaults, model, contacts, actuators/sensors, keyframes) -->
+  <include file="stretch_4/stretch_4_dynamic.xml"/>
+
+  <worldbody>
+      <!-- Concrete floor (G4_CONCRETE), name "floor" required by robot contact pairs -->
+      <geom name="floor" type="plane" size="10 10 .05" material="G4_CONCRETE" condim="3"/>
+
+      <light directional="true" diffuse=".8 .8 .8" pos="0 0 10" dir="0 0 -10"/>
+      <light name="spotlight" mode="targetbodycom" target="world" diffuse="1 1 1" specular="0.3 0.3 0.3" pos="-6 -6 4" cutoff="60"/>
+
+      <!-- ===== Concrete walls (G4_CONCRETE): 0.2 m thick, 3 m tall, at floor edges ===== -->
+      <geom name="wall_north" type="box" pos="0  10 1.5" size="10 0.1 1.5" material="G4_CONCRETE"/>
+      <geom name="wall_south" type="box" pos="0 -10 1.5" size="10 0.1 1.5" material="G4_CONCRETE"/>
+      <geom name="wall_east"  type="box" pos=" 10 0 1.5" size="0.1 10 1.5" material="G4_CONCRETE"/>
+      <geom name="wall_west"  type="box" pos="-10 0 1.5" size="0.1 10 1.5" material="G4_CONCRETE"/>
+
+      <!-- ===== 6 spent-fuel canisters: closed solid 304L cylinders, static, 3x2 grid ===== -->
+      <!-- size = (R_out 0.89, half-height 2.09); base on floor (pos z = 2.09) -->
+      <geom name="canister_1" type="cylinder" size="0.89 2.09" pos="-4 -3 2.09" material="G4_STAINLESS-STEEL"/>
+      <geom name="canister_2" type="cylinder" size="0.89 2.09" pos=" 0 -3 2.09" material="G4_STAINLESS-STEEL"/>
+      <geom name="canister_3" type="cylinder" size="0.89 2.09" pos=" 4 -3 2.09" material="G4_STAINLESS-STEEL"/>
+      <geom name="canister_4" type="cylinder" size="0.89 2.09" pos="-4  3 2.09" material="G4_STAINLESS-STEEL"/>
+      <geom name="canister_5" type="cylinder" size="0.89 2.09" pos=" 0  3 2.09" material="G4_STAINLESS-STEEL"/>
+      <geom name="canister_6" type="cylinder" size="0.89 2.09" pos=" 4  3 2.09" material="G4_STAINLESS-STEEL"/>
+  </worldbody>
+</mujoco>
