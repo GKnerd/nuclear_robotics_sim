@@ -42,6 +42,13 @@ from scipy.spatial.transform import Rotation as R
 DEFAULT_CANISTER_MATERIAL = "G4_STAINLESS-STEEL"
 WALL_MATERIAL = "G4_CONCRETE"
 
+# This module is imported from its symlink-installed copy (share/.../utils); resolve()
+# follows the symlink back to the SRC tree, so the generated scene is written under src/
+# (persists across rebuilds, reusable later) instead of the ephemeral install/share dir.
+# Stable name, overwritten each run -> always the most recent generated scene.
+PACKAGE_SRC_DIR = Path(__file__).resolve().parent.parent
+LATEST_SCENE = PACKAGE_SRC_DIR / "generated" / "radiation_room_latest.xml"
+
 
 def load_xml(scene_xml: Union[Path, str]) -> ET.ElementTree:
     """Load and parse a MuJoCo scene XML file into an ElementTree."""
@@ -191,8 +198,9 @@ def write_scene_from_config(
     tree = load_xml(Path(template_path))
     modify_scene_xml(config=config, tree=tree)
     if not out_path:
-        fallback = "fallback.xml"
-        out_path = Path(template_path).parent / fallback
+        LATEST_SCENE.parent.mkdir(parents=True, exist_ok=True)
+        out_path = LATEST_SCENE
 
+    ET.indent(tree, space="  ")  # pretty-print: one element per line, consistent indent
     tree.write(str(out_path), encoding="unicode")
     return str(out_path)

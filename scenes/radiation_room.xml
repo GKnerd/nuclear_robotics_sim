@@ -53,7 +53,7 @@
 
   <worldbody>
       <!-- Concrete floor (G4_CONCRETE), name "floor" required by robot contact pairs -->
-      <geom name="floor" type="plane" size="10 10 .05" material="G4_CONCRETE" condim="3"/>
+      <geom name="floor" type="plane" pos="0 0 0.001" size="10 10 .05" material="G4_CONCRETE" condim="3"/>
 
       <light directional="true" diffuse=".8 .8 .8" pos="0 0 10" dir="0 0 -10"/>
       <light name="spotlight" mode="targetbodycom" target="world" diffuse="1 1 1" specular="0.3 0.3 0.3" pos="-6 -6 4" cutoff="60"/>

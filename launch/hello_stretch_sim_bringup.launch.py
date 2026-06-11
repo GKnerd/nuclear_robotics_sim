@@ -97,7 +97,7 @@ def generate_declared_arguments() -> List[DeclareLaunchArgument]:
         ),
         DeclareLaunchArgument(
             "mode",
-            default_value="position",
+            default_value="navigation",
             choices=["position", "navigation", "trajectory", "gamepad"],
             description="The mode in which the ROS driver commands the robot",
         ),

@@ -26,6 +26,7 @@ launch
 scenes
 config
 utils
+generated
 DESTINATION share/${PROJECT_NAME})
 
 ament_package()
