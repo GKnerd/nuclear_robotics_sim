@@ -8,10 +8,12 @@ from typing import List, Dict
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
 from launch.actions import (
-    DeclareLaunchArgument, 
+    DeclareLaunchArgument,
+    GroupAction,
     IncludeLaunchDescription,
-    OpaqueFunction, 
-    Shutdown
+    OpaqueFunction,
+    SetLaunchConfiguration,
+    Shutdown,
     )
 from launch.substitutions import (
     Command,
@@ -20,7 +22,9 @@ from launch.substitutions import (
     PathJoinSubstitution
     )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.actions import SetRemap
 from launch_ros.substitutions import FindPackageShare
+from hello_helpers.multi_yaml import MultiYaml
 
 
 def launch_setup(context, *args, **kwargs) -> List[DeclareLaunchArgument]:
@@ -42,6 +46,7 @@ def launch_setup(context, *args, **kwargs) -> List[DeclareLaunchArgument]:
         "joint_state_rate": LaunchConfiguration("joint_state_rate"),
         "timeout": LaunchConfiguration("timeout"),
         "default_goal_timeout_s": LaunchConfiguration("default_goal_timeout_s"),
+        "use_sim_time": LaunchConfiguration("use_sim_time")
     }
 
     if scene_config:
@@ -49,18 +54,64 @@ def launch_setup(context, *args, **kwargs) -> List[DeclareLaunchArgument]:
                                                 template_path=stretch_driver_params["scene_xml"].perform(context)
         )
 
+    autonomous = LaunchConfiguration("autonomous").perform(context) == "true"
+    if autonomous:
+        # nav2 brings its own RViz (navigation.rviz); avoid launching a second one.
+        stretch_driver_params["use_rviz"] = "false"
+
     stretch_mujoco_simulation_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
-                FindPackageShare("stretch_simulation"),   
+                FindPackageShare("stretch_simulation"),
                 "launch",
-                "stretch_mujoco_driver.launch.py"
-        ])
-    ),
-    launch_arguments=stretch_driver_params.items()
+                "stretch_mujoco_driver.launch.py",
+            ])
+        ),
+        launch_arguments=stretch_driver_params.items(),
     )
-    
-    return [stretch_mujoco_simulation_launch]
+
+    nodes = [stretch_mujoco_simulation_launch]
+
+    if autonomous:
+        # Reuse the existing nav2 core. NOT navigation_mppi.launch.py -- that also
+        # starts the real-robot driver + lidar; in sim our driver already provides
+        # those. Mirror how navigation_mppi wires nav_core (MPPI params via MultiYaml)
+        # and add the footprint publisher.
+        stretch_nav2 = FindPackageShare("stretch_nav2")
+        stretch_core = FindPackageShare("stretch_core")
+
+        footprint_launch = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([stretch_core, "launch", "robot_footprint.launch.py"])
+            ),
+            launch_arguments={"tool_preset": "sg4"}.items(),
+        )
+
+        nav2_launch = GroupAction([
+            SetLaunchConfiguration("use_sim_time", "false"),  # nav_core doesn't forward it
+            SetRemap("cmd_vel", "/stretch/cmd_vel"),         # nav2 output -> sim driver
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    PathJoinSubstitution([stretch_nav2, "launch", "include", "nav_core.launch.py"])
+                ),
+                launch_arguments={
+                    "map": LaunchConfiguration("map"),
+                    "use_slam": "False",
+                    "use_rviz": LaunchConfiguration("use_rviz"),
+                    "use_composition": "False",  # so the cmd_vel SetRemap reaches nav2 nodes
+                    "params_file": MultiYaml([
+                        PathJoinSubstitution([stretch_nav2, "config", "original_nav2_params.yaml"]),
+                        PathJoinSubstitution([stretch_nav2, "config", "nav2_params_core.yaml"]),
+                        PathJoinSubstitution([stretch_nav2, "config", "nav2_params_mppi.yaml"]),
+                        PathJoinSubstitution([stretch_nav2, "config", "mppi_params.yaml"]),
+                    ]),
+                }.items(),
+            ),
+        ])
+
+        nodes += [footprint_launch, nav2_launch]
+
+    return nodes
 
 def generate_launch_description() -> LaunchDescription:
 
@@ -73,6 +124,22 @@ def generate_declared_arguments() -> List[DeclareLaunchArgument]:
 
     return [
 
+        DeclareLaunchArgument(
+            "autonomous",
+            default_value="false",
+            choices=["true", "false"],
+            description="true = launch the nav2 stack (needs map:=); false = sim only (run teleop separately)",
+        ),
+        DeclareLaunchArgument(
+            "use_sim_time",
+            default_value="false",
+            description="Use sim time or not",
+        ),
+        DeclareLaunchArgument(
+            "map",
+            default_value="",
+            description="Path to the map .yaml for autonomous (nav2) mode; required when operation:=autonomous",
+        ),
         DeclareLaunchArgument(
             "broadcast_odom_tf",
             default_value="true",
